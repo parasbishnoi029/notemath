@@ -1,57 +1,58 @@
-# ---------- IMPORTS ----------
 from fastapi import FastAPI
 from pydantic import BaseModel
-from sympy import symbols, integrate
+from sympy import symbols, integrate, solve, Eq
 from sympy.parsing.latex import parse_latex
 
-# ---------- APP INIT ----------
 app = FastAPI()
-
-# symbolic variable (NOT a number)
 x = symbols("x")
 
-# ---------- INPUT FORMAT ----------
-# expected JSON:
-# { "latex": "\\int x^2 dx" }
 class Input(BaseModel):
     latex: str
 
-# ---------- HEALTH CHECK ----------
 @app.get("/")
-def root():
+def health():
     return {"status": "NoteMath backend running"}
 
-# ---------- CORE SOLVER ----------
 @app.post("/solve")
-def solve(data: Input):
+def solve_math(data: Input):
+    latex = data.latex.strip()
+
     try:
-        # remove integral sign and dx
-        # because SymPy integrates expressions, not symbols
-        cleaned = (
-            data.latex
-            .replace("\\int", "")
-            .replace("dx", "")
-            .strip()
-        )
+        # -------- INTEGRAL --------
+        if "\\int" in latex:
+            cleaned = latex.replace("\\int", "").replace("dx", "").strip()
+            expr = parse_latex(cleaned)
+            result = integrate(expr, x)
 
-        # convert LaTeX → SymPy expression
-        expr = parse_latex(cleaned)
+            return {
+                "type": "integral",
+                "steps": [
+                    f"Given the integral {latex}",
+                    "Use the power rule for integration",
+                    "Increase the power by 1",
+                    "Divide by the new power",
+                    "Add constant of integration C"
+                ],
+                "answer": f"{result} + C"
+            }
 
-        # integrate with respect to x
-        result = integrate(expr, x)
+        # -------- EQUATION --------
+        if "=" in latex:
+            left, right = latex.split("=")
+            eq = Eq(parse_latex(left), parse_latex(right))
+            sol = solve(eq, x)
 
-        return {
-            "steps": [
-                f"Given the integral {data.latex}",
-                "Identify the power of x",
-                "Increase the power by 1",
-                "Divide by the new power",
-                "Add constant of integration C"
-            ],
-            "answer": f"{result} + C"
-        }
+            return {
+                "type": "equation",
+                "steps": [
+                    f"Given the equation {latex}",
+                    "Rearrange terms to isolate x",
+                    "Solve the equation"
+                ],
+                "answer": f"x = {sol}"
+            }
 
-    except Exception as e:
-        return {
-            "error": "Invalid or unsupported expression"
-        }
+        return {"error": "Unsupported input"}
+
+    except Exception:
+        return {"error": "Invalid mathematical expression"}
