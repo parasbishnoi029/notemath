@@ -1,51 +1,64 @@
 import { useState } from "react";
+import dynamic from "next/dynamic";
 import axios from "axios";
-import MathInput from "../components/MathInput";
 
 import { BlockMath } from "react-katex";
 import "katex/dist/katex.min.css";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+// 🚨 IMPORTANT: disable SSR for MathInput
+const MathInput = dynamic(() => import("../components/MathInput"), {
+  ssr: false,
+});
+
+const API_URL =
+  process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
 export default function Home() {
   const [latex, setLatex] = useState("");
-  const [steps, setSteps] = useState([]);
-  const [answer, setAnswer] = useState("");
+  const [history, setHistory] = useState([]);
   const [error, setError] = useState("");
 
-  const solveMath = async () => {
+  const solve = async () => {
     try {
       setError("");
 
-      const res = await axios.post(`${API_URL}/solve`, {
-        latex,
-      });
+      const res = await axios.post(`${API_URL}/solve`, { latex });
 
       if (res.data.error) {
         setError(res.data.error);
         return;
       }
 
-      setSteps(res.data.steps);
-      setAnswer(res.data.answer);
+      setHistory((prev) => [
+        ...prev,
+        {
+          input: latex,
+          steps: res.data.steps,
+          answer: res.data.answer,
+        },
+      ]);
     } catch {
       setError("Backend not reachable");
     }
   };
 
   return (
-    <div style={{ padding: "30px", maxWidth: "800px", margin: "auto" }}>
+    <div style={{ padding: "30px", maxWidth: "900px", margin: "auto" }}>
       <h1>📘 NoteMath</h1>
 
-      <p>Type math using keyboard or symbols</p>
+      <p>Type math using symbols or keyboard</p>
 
       <MathInput onChange={setLatex} />
 
-      <h3>Preview</h3>
-      {latex && <BlockMath math={latex} />}
+      {latex && (
+        <>
+          <h3>Preview</h3>
+          <BlockMath math={latex} />
+        </>
+      )}
 
       <button
-        onClick={solveMath}
+        onClick={solve}
         style={{ marginTop: "15px", padding: "10px" }}
       >
         Solve
@@ -53,23 +66,17 @@ export default function Home() {
 
       {error && <p style={{ color: "red" }}>{error}</p>}
 
-      {steps.length > 0 && (
-        <>
-          <h3>Steps</h3>
-          {steps.map((s, i) => (
-            <p key={i}>
-              {i + 1}. {s}
-            </p>
-          ))}
-        </>
-      )}
+      <hr />
 
-      {answer && (
-        <>
-          <h3>Final Answer</h3>
-          <BlockMath math={answer} />
-        </>
-      )}
+      {history.map((cell, i) => (
+        <div key={i} style={{ marginBottom: "30px" }}>
+          <BlockMath math={cell.input} />
+          {cell.steps.map((s, j) => (
+            <p key={j}>{j + 1}. {s}</p>
+          ))}
+          <BlockMath math={cell.answer} />
+        </div>
+      ))}
     </div>
   );
 }
