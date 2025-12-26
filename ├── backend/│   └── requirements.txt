@@ -1,16 +1,4 @@
-import React from 'react';
-
-interface │   └── requirementsProps {
-  // Define props here
-}
-
-const │   └── requirements: React.FC<│   └── requirementsProps> = () => {
-  return (
-    <div className="requirements">
-      <h1>│   └── requirements Component</h1>
-      {/* Component content */}
-    </div>
-  );
-};
-
-export default │   └── requirements;
+fastapi
+uvicorn
+sympy
+antlr4-python3-runtime
